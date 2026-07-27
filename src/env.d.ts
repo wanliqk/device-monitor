@@ -31,6 +31,8 @@ interface ImportMetaEnv {
   readonly VITE_AUTH_MODE: 'single' | 'double'
   /** 是否清除console */
   readonly VITE_DELETE_CONSOLE: string
+  /** 设备监控是否使用内置伪数据，'false' 时切换到真实后端接口 */
+  readonly VITE_USE_MOCK?: 'true' | 'false'
   // 更多环境变量...
 }
 
