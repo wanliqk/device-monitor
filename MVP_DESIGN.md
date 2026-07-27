@@ -564,9 +564,6 @@ MVP 试运行 2～4 周后，满足以下条件可进入下一阶段：
 
 ## 17. 官方接口参考
 
-- [`MapContext.openMapApp`](https://developers.weixin.qq.com/miniprogram/dev/api/media/map/MapContext.openMapApp.html)
-- [`MapContext`](https://developers.weixin.qq.com/miniprogram/dev/api/media/map/MapContext.html)
-- [`map` 组件](https://developers.weixin.qq.com/miniprogram/dev/component/map.html)
-- [`wx.openLocation`](https://developers.weixin.qq.com/miniprogram/dev/api/location/wx.openLocation.html)
+- [`MapContext.openMapApp`](https://uniapp.dcloud.net.cn/api/location/map.html#mapcontext)
 
-正式开发和提审前应再次核对微信官方文档、基础库兼容性及隐私接口要求。
+正式开发和提审前应再次核对Uniapp官方文档、基础库兼容性及隐私接口要求。
