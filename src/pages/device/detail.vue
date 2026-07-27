@@ -13,7 +13,7 @@ import {
   ONLINE_STATUS_META,
   resolveOnlineStatus,
 } from '@/utils/deviceStatus'
-import { formatCoordinate, formatSpeed } from '@/utils/geo'
+import { formatCoordinate, formatSpeed, isValidCoordinate } from '@/utils/geo'
 import { trackEvent } from '@/utils/analytics'
 
 defineOptions({
@@ -37,6 +37,7 @@ const deviceId = ref('')
 const snapshot = ref<DeviceLatestLocationRes | null>(null)
 const loading = ref(true)
 const errorMessage = ref('')
+const mapErrorMessage = ref('')
 /** 最近一次位置更新的来源，用于向用户说明数据是推送还是轮询拿到的 */
 const lastUpdateSource = ref<'snapshot' | 'push' | 'poll'>('snapshot')
 
@@ -44,11 +45,25 @@ const now = ref(Date.now())
 let ticker: ReturnType<typeof setInterval> | null = null
 
 /** 地图中心。默认跟随设备，用户拖动地图后停止跟随，避免新点到达时把视野拽回去 */
-const center = ref({ latitude: 31.2304, longitude: 121.4737 })
+// 郑州测试数据的默认视野。没有定位点时不会挂载原生地图组件。
+const center = ref({ latitude: 34.7566, longitude: 113.6500 })
 const followDevice = ref(true)
 const mapScale = ref(16)
+const mapRenderKey = ref(0)
 
 const location = computed(() => snapshot.value?.location ?? null)
+
+/** 微信地图要求服务端下发 gcj02 坐标；无效点不能传给原生 map。 */
+function isMapLocation(value: DeviceLocation | null | undefined): value is DeviceLocation {
+  return Boolean(
+    value
+    && value.coordinateSystem === 'gcj02'
+    && isValidCoordinate(value.latitude, value.longitude),
+  )
+}
+
+const validLocation = computed(() => (isMapLocation(location.value) ? location.value : null))
+const hasInvalidLocation = computed(() => Boolean(location.value && !validLocation.value))
 
 /** 状态在页面停留期间会自然变旧，必须按当前时间重算 */
 const status = computed(() =>
@@ -60,25 +75,28 @@ const locationText = computed(() => {
   if (!location.value) {
     return '暂无定位数据'
   }
-  return location.value.address || formatCoordinate(location.value.latitude, location.value.longitude)
+  if (!validLocation.value) {
+    return '定位坐标无效，请检查设备坐标系与定位权限'
+  }
+  return validLocation.value.address || formatCoordinate(validLocation.value.latitude, validLocation.value.longitude)
 })
 
 /** 从未定位的设备不显示 Marker */
 const markers = computed(() => {
-  if (!location.value) {
+  if (!validLocation.value) {
     return []
   }
   return [
     {
       id: 1,
-      latitude: location.value.latitude,
-      longitude: location.value.longitude,
+      latitude: validLocation.value.latitude,
+      longitude: validLocation.value.longitude,
       iconPath: '/static/map/marker-device.png',
       width: 24,
       height: 24,
       anchor: { x: 0.5, y: 0.5 },
       callout: {
-        content: `${snapshot.value?.name ?? '设备'}\n${formatRelativeTime(location.value.recordedAt, now.value)}`,
+        content: `${snapshot.value?.name ?? '设备'}\n${formatRelativeTime(validLocation.value.recordedAt, now.value)}`,
         color: '#333333',
         fontSize: 12,
         borderRadius: 6,
@@ -95,14 +113,14 @@ const markers = computed(() => {
 
 /** 精度圈：只有设备上报了精度才画，避免用固定半径误导用户 */
 const circles = computed(() => {
-  if (!location.value || !location.value.accuracy) {
+  if (!validLocation.value || !validLocation.value.accuracy) {
     return []
   }
   return [
     {
-      latitude: location.value.latitude,
-      longitude: location.value.longitude,
-      radius: location.value.accuracy,
+      latitude: validLocation.value.latitude,
+      longitude: validLocation.value.longitude,
+      radius: validLocation.value.accuracy,
       color: '#1677FF66',
       fillColor: '#1677FF1A',
       strokeWidth: 1,
@@ -148,10 +166,20 @@ function applyLocation(nextLocation: DeviceLocation) {
   if (!snapshot.value) {
     return
   }
+  const hadValidLocation = Boolean(validLocation.value)
+  const nextLocationIsValid = isMapLocation(nextLocation)
   snapshot.value = { ...snapshot.value, location: nextLocation }
   now.value = Date.now()
-  if (followDevice.value) {
+  if (followDevice.value && nextLocationIsValid) {
     center.value = { latitude: nextLocation.latitude, longitude: nextLocation.longitude }
+  }
+  if (nextLocationIsValid) {
+    mapErrorMessage.value = ''
+  }
+  // 某些 iOS/微信版本在 map 首次收到非法坐标后不会可靠恢复，
+  // 从无效点切换到有效点时用 key 强制创建一个全新的原生地图实例。
+  if (!hadValidLocation && nextLocationIsValid) {
+    mapRenderKey.value += 1
   }
 }
 
@@ -161,12 +189,27 @@ async function fetchSnapshot(options: { silent?: boolean } = {}) {
   }
   try {
     const res = await getDeviceLatestLocation(deviceId.value)
+    // 防止接口或缓存返回了另一台设备的数据；身份不一致时禁止进入地图渲染流程。
+    if (res.deviceId !== deviceId.value) {
+      throw new Error('设备数据校验失败，请重试')
+    }
+    const hadValidLocation = Boolean(validLocation.value)
+    const nextLocationIsValid = isMapLocation(res.location)
     snapshot.value = res
     lastUpdateSource.value = 'snapshot'
     errorMessage.value = ''
     now.value = Date.now()
-    if (res.location && followDevice.value) {
+    if (res.location && followDevice.value && nextLocationIsValid) {
       center.value = { latitude: res.location.latitude, longitude: res.location.longitude }
+    }
+    if (res.location && !nextLocationIsValid) {
+      mapErrorMessage.value = '设备返回的坐标无效，已停止地图渲染'
+    }
+    else {
+      mapErrorMessage.value = ''
+    }
+    if (!hadValidLocation && nextLocationIsValid) {
+      mapRenderKey.value += 1
     }
     return res
   }
@@ -182,10 +225,20 @@ async function fetchSnapshot(options: { silent?: boolean } = {}) {
 
 function backToDevice() {
   followDevice.value = true
-  if (location.value) {
-    center.value = { latitude: location.value.latitude, longitude: location.value.longitude }
+  if (validLocation.value) {
+    center.value = { latitude: validLocation.value.latitude, longitude: validLocation.value.longitude }
     mapScale.value = 16
   }
+}
+
+/** 原生地图服务异常时显示可理解的业务提示，而不是暴露底层地图画布。 */
+function handleMapError() {
+  mapErrorMessage.value = '地图服务暂时不可用，请检查网络或地图配置'
+}
+
+function retryMap() {
+  mapErrorMessage.value = ''
+  mapRenderKey.value += 1
 }
 
 function handleRegionChange(event: any) {
@@ -210,13 +263,13 @@ function stopTicker() {
 }
 
 /** 无有效定位点时禁用导航按钮 */
-const canNavigate = computed(() => Boolean(location.value))
+const canNavigate = computed(() => Boolean(validLocation.value))
 
 function handleNavigate() {
   navigateToDevice({
     mapId: MAP_ID,
     instance: instance?.proxy,
-    location: location.value,
+    location: validLocation.value,
     deviceName: snapshot.value?.name ?? '设备位置',
     status: status.value,
   })
@@ -339,9 +392,12 @@ onUnload(() => {
       </view>
 
       <!-- 中部地图 -->
-      <view class="relative mt-2 flex-1">
+      <!-- 原生 map 在真机首次挂载时不能依赖 flex-1 推导高度，必须给出明确高度。 -->
+      <view class="relative mt-2 h-80 w-full flex-shrink-0">
         <map
+          v-if="validLocation"
           :id="MAP_ID"
+          :key="mapRenderKey"
           class="h-full w-full"
           :latitude="center.latitude"
           :longitude="center.longitude"
@@ -350,17 +406,30 @@ onUnload(() => {
           :circles="circles"
           :show-location="false"
           @regionchange="handleRegionChange"
+          @error="handleMapError"
         />
 
         <view
-          v-if="!location"
+          v-if="!validLocation"
           class="absolute inset-0 flex items-center justify-center bg-white/70 px-8 text-center text-3.5 text-gray-500"
         >
-          该设备没有有效定位点，地图上不显示位置。请检查设备定位权限与网络连接。
+          {{ hasInvalidLocation ? '该设备返回的定位坐标无效，地图上不显示位置。' : '该设备没有有效定位点，地图上不显示位置。' }}
+          请检查设备定位权限、坐标系与网络连接。
         </view>
 
         <view
-          v-else-if="!followDevice"
+          v-else-if="mapErrorMessage"
+          class="absolute inset-0 flex flex-col items-center justify-center bg-white/90 px-8 text-center text-3.5 text-gray-500"
+        >
+          <view class="i-carbon-warning mb-2 text-8 text-gray-300" />
+          <text>{{ mapErrorMessage }}</text>
+          <wd-button class="mt-4" size="small" plain @click="retryMap">
+            重试地图
+          </wd-button>
+        </view>
+
+        <view
+          v-else-if="validLocation && !followDevice"
           class="absolute bottom-3 right-3 flex items-center rounded-full bg-white px-3 py-2 text-3 shadow"
           @click="backToDevice"
         >
@@ -378,18 +447,18 @@ onUnload(() => {
           </text>
         </view>
 
-        <view v-if="location" class="mt-2 flex flex-wrap text-3 text-gray-500">
+        <view v-if="validLocation" class="mt-2 flex flex-wrap text-3 text-gray-500">
           <text class="mr-4">
-            经纬度 {{ formatCoordinate(location.latitude, location.longitude, 5) }}
+            经纬度 {{ formatCoordinate(validLocation.latitude, validLocation.longitude, 5) }}
           </text>
           <text class="mr-4">
-            速度 {{ formatSpeed(location.speed) }}
+            速度 {{ formatSpeed(validLocation.speed) }}
           </text>
           <text class="mr-4">
-            精度 {{ formatAccuracy(location.accuracy) }}
+            精度 {{ formatAccuracy(validLocation.accuracy) }}
           </text>
-          <text v-if="formatBattery(location.battery) !== '--'">
-            电量 {{ formatBattery(location.battery) }}
+          <text v-if="formatBattery(validLocation.battery) !== '--'">
+            电量 {{ formatBattery(validLocation.battery) }}
           </text>
         </view>
 

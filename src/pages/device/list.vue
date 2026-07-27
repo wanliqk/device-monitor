@@ -116,7 +116,8 @@ function stopTicker() {
 
 function goDetail(device: DeviceSummary) {
   uni.navigateTo({
-    url: `/pages/device/detail?deviceId=${device.id}&name=${encodeURIComponent(device.name)}`,
+    // 只传稳定的设备 ID，详情页会重新请求最新位置，避免使用列表中的过期坐标。
+    url: `/pages/device/detail?deviceId=${encodeURIComponent(device.id)}&name=${encodeURIComponent(device.name)}`,
   })
 }
 
