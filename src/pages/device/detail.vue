@@ -1,8 +1,9 @@
 <script lang="ts" setup>
 import type { DeviceLatestLocationRes, DeviceLocation } from '@/api/types/device'
-import { computed, ref } from 'vue'
+import { computed, getCurrentInstance, ref } from 'vue'
 import { getDeviceLatestLocation } from '@/api/device'
 import { useDeviceRealtime } from '@/hooks/useDeviceRealtime'
+import { useMapNavigation } from '@/hooks/useMapNavigation'
 import { useDeviceConfigStore } from '@/store/deviceConfig'
 import {
   formatAccuracy,
@@ -25,6 +26,11 @@ definePage({
 })
 
 const configStore = useDeviceConfigStore()
+/** openMapApp 依附于页面里的 <map> 组件，需要组件实例来创建地图上下文 */
+const instance = getCurrentInstance()
+const { navigating, navigateToDevice } = useMapNavigation()
+
+const MAP_ID = 'deviceMap'
 
 const deviceId = ref('')
 const snapshot = ref<DeviceLatestLocationRes | null>(null)
@@ -202,6 +208,19 @@ function stopTicker() {
   }
 }
 
+/** 无有效定位点时禁用导航按钮 */
+const canNavigate = computed(() => Boolean(location.value))
+
+function handleNavigate() {
+  navigateToDevice({
+    mapId: MAP_ID,
+    instance: instance?.proxy,
+    location: location.value,
+    deviceName: snapshot.value?.name ?? '设备位置',
+    status: status.value,
+  })
+}
+
 async function refresh() {
   const res = await fetchSnapshot({ silent: true })
   if (res) {
@@ -314,7 +333,7 @@ onUnload(() => {
       <!-- 中部地图 -->
       <view class="relative mt-2 flex-1">
         <map
-          id="deviceMap"
+          :id="MAP_ID"
           class="h-full w-full"
           :latitude="center.latitude"
           :longitude="center.longitude"
@@ -366,7 +385,20 @@ onUnload(() => {
           </text>
         </view>
 
-        <view class="mt-3 flex">
+        <!-- 主操作：导航到设备。无有效定位点时禁用，位置过期时会先弹风险提示 -->
+        <view class="mt-3">
+          <wd-button
+            type="primary"
+            block
+            :disabled="!canNavigate"
+            :loading="navigating"
+            @click="handleNavigate"
+          >
+            导航到设备
+          </wd-button>
+        </view>
+
+        <view class="mt-2 flex">
           <wd-button plain size="small" custom-class="flex-1" @click="refresh">
             刷新
           </wd-button>
