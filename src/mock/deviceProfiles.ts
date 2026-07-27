@@ -37,17 +37,17 @@ export interface MockDeviceProfile {
   hasBattery: boolean
 }
 
-/** 上海市区若干参考点（gcj02，与微信地图同坐标系） */
-const SHANGHAI = {
-  peoplesSquare: { latitude: 31.2304, longitude: 121.4737 },
-  nanjingRoad: { latitude: 31.2360, longitude: 121.4800 },
-  bund: { latitude: 31.2397, longitude: 121.4900 },
-  yuGarden: { latitude: 31.2270, longitude: 121.4920 },
-  xintiandi: { latitude: 31.2210, longitude: 121.4750 },
-  lujiazui: { latitude: 31.2397, longitude: 121.4998 },
-  xujiahui: { latitude: 31.1950, longitude: 121.4370 },
-  jiaotongUniv: { latitude: 31.2010, longitude: 121.4310 },
-  hongqiaoStation: { latitude: 31.1948, longitude: 121.3200 },
+/** 郑州市区若干参考点（gcj02，与微信地图同坐标系） */
+const ZHENGZHOU = {
+  erqiSquare: { latitude: 34.7566, longitude: 113.6500 },
+  peoplePark: { latitude: 34.7674, longitude: 113.6753 },
+  henanMuseum: { latitude: 34.7780, longitude: 113.6880 },
+  cbd: { latitude: 34.7668, longitude: 113.7168 },
+  erqiTower: { latitude: 34.7555, longitude: 113.6496 },
+  eastRailwayStation: { latitude: 34.7592, longitude: 113.7250 },
+  zhengzhouUniversity: { latitude: 34.8160, longitude: 113.5370 },
+  wulongkou: { latitude: 34.7940, longitude: 113.6740 },
+  airport: { latitude: 34.5197, longitude: 113.8408 },
 } satisfies Record<string, LatLng>
 
 /**
@@ -62,37 +62,37 @@ export const MOCK_DEVICE_PROFILES: MockDeviceProfile[] = [
   {
     id: 'dev_001',
     externalId: 'IMEI-867295060234871',
-    name: '巡检车 沪A·3871',
+    name: '巡检车 豫A·3871',
     status: 'active',
     motion: 'moving',
     reportLagSeconds: 0,
     reportIntervalSeconds: 10,
     route: [
-      SHANGHAI.peoplesSquare,
-      SHANGHAI.nanjingRoad,
-      SHANGHAI.bund,
-      SHANGHAI.yuGarden,
-      SHANGHAI.xintiandi,
+      ZHENGZHOU.erqiSquare,
+      ZHENGZHOU.peoplePark,
+      ZHENGZHOU.henanMuseum,
+      ZHENGZHOU.cbd,
+      ZHENGZHOU.erqiTower,
     ],
     speedMps: 9,
     addressPool: [
-      '上海市黄浦区人民大道 200 号附近',
-      '上海市黄浦区南京东路 300 号附近',
-      '上海市黄浦区中山东一路 12 号附近',
-      '上海市黄浦区安仁街 132 号附近',
-      '上海市黄浦区太仓路 181 弄附近',
+      '郑州市二七区解放路 200 号附近',
+      '郑州市金水区人民路 300 号附近',
+      '郑州市金水区农业路 12 号附近',
+      '郑州市金水区商务外环路 132 号附近',
+      '郑州市二七区民主路 181 号附近',
     ],
     hasBattery: true,
   },
   {
     id: 'dev_002',
     externalId: 'IMEI-867295060119204',
-    name: '冷链车 沪B·9204',
+    name: '冷链车 豫A·9204',
     status: 'active',
     motion: 'idle',
     reportLagSeconds: 0,
     reportIntervalSeconds: 30,
-    route: [SHANGHAI.lujiazui],
+    route: [ZHENGZHOU.eastRailwayStation],
     speedMps: 0,
     // 空文案池：模拟逆地理编码失败，页面必须降级为经纬度展示
     addressPool: [],
@@ -107,11 +107,11 @@ export const MOCK_DEVICE_PROFILES: MockDeviceProfile[] = [
     // 130 秒前的最后上报，落在 60~300 秒区间，判定为「位置过期」
     reportLagSeconds: 130,
     reportIntervalSeconds: 30,
-    route: [SHANGHAI.xujiahui, SHANGHAI.jiaotongUniv],
+    route: [ZHENGZHOU.zhengzhouUniversity, ZHENGZHOU.wulongkou],
     speedMps: 1.4,
     addressPool: [
-      '上海市徐汇区漕溪北路 100 号附近',
-      '上海市徐汇区华山路 1954 号附近',
+      '郑州市中原区建设西路 100 号附近',
+      '郑州市中原区桐柏路 1954 号附近',
     ],
     hasBattery: true,
   },
@@ -124,9 +124,9 @@ export const MOCK_DEVICE_PROFILES: MockDeviceProfile[] = [
     // 3 小时前的最后上报，判定为「离线」
     reportLagSeconds: 3 * 3600,
     reportIntervalSeconds: 300,
-    route: [SHANGHAI.hongqiaoStation],
+    route: [ZHENGZHOU.airport],
     speedMps: 0,
-    addressPool: ['上海市闵行区申贵路 1500 号附近'],
+    addressPool: ['郑州市航空港区迎宾大道 1500 号附近'],
     // 该型号不上报电量，页面对应字段应显示占位符而不是 0%
     hasBattery: false,
   },
