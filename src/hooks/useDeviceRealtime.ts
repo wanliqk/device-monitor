@@ -3,6 +3,7 @@ import type { LocationStream, LocationStreamHandlers } from '@/api/deviceSocket'
 import { ref } from 'vue'
 import { openLocationStream as defaultOpenLocationStream } from '@/api/deviceSocket'
 import { getDeviceLatestLocation } from '@/api/device'
+import { trackEvent } from '@/utils/analytics'
 
 /**
  * 实时链路状态
@@ -133,6 +134,7 @@ export function useDeviceRealtime(options: UseDeviceRealtimeOptions) {
         }
         linkStatus.value = 'connected'
         retryCount.value = 0
+        trackEvent('realtime_ws_connected')
         // 推送恢复后不再需要轮询兜底
         stopPolling()
       },
@@ -155,6 +157,7 @@ export function useDeviceRealtime(options: UseDeviceRealtimeOptions) {
         if (stopped || reason === 'manual') {
           return
         }
+        trackEvent('realtime_ws_disconnected', { reason })
         linkStatus.value = 'reconnecting'
         // 断线期间先靠轮询保证页面数据仍在更新，再指数退避重连
         startPolling()

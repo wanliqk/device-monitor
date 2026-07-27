@@ -13,9 +13,9 @@
 | 设备列表页 | ✅ 已完成 | `4db9ef9` |
 | 实时位置页（地图 + 推送通道） | ✅ 已完成 | `f36e8a4` |
 | 导航到设备 + 埋点基础设施 | ✅ 已完成 | `ba8cb03` |
-| 历史轨迹页 | ⬜ 未开始 | — |
-| 「我的」页与剩余埋点接入 | ⬜ 未开始 | — |
-| 微信登录与会话 | ⬜ 未开始 | — |
+| 历史轨迹页 | ✅ 已完成 | 工作区本次实现 |
+| 「我的」页与剩余埋点接入 | ✅ 已完成 | 工作区本次实现 |
+| 微信登录与会话 | ✅ 已完成（客户端/mock） | 工作区本次实现 |
 
 质量基线（每次提交前均已执行）：
 
@@ -45,7 +45,10 @@ src/
 ├── pages/device/
 │   ├── list.vue               # 设备列表（首页 + tabbar）
 │   ├── detail.vue             # 实时位置页
+│   ├── track.vue              # 历史轨迹页
 │   └── components/DeviceCard.vue
+├── pages/login/index.vue      # 微信登录与会话入口
+├── pages/me/me.vue             # 用户、设备数量、隐私与退出
 ├── store/deviceConfig.ts      # 服务端运行时配置缓存
 └── utils/
     ├── geo.ts                 # 坐标校验、里程、抽稀、格式化
@@ -70,14 +73,14 @@ src/
 把 `env/.env` 中的 `VITE_USE_MOCK` 改为 `'false'`，`src/api/device.ts` 与
 `src/api/deviceSocket.ts` 会自动切到 MVP 设计文档第 8 章约定的 HTTPS/WSS 接口，页面代码无需改动。
 
-## 3. 未开发模块
+## 3. 当前未完成/需外部配合模块
 
-### 3.1 历史轨迹页（P0，下一步）
+### 3.1 历史轨迹页（P0，已完成）
 
 数据层已经就绪，`getDeviceTrack()` 与 `buildTrack()` 已实现范围裁剪、异常点过滤、
-里程统计与抽稀，并有 10 个单元测试覆盖；缺的是页面。
+里程统计与抽稀，并有 10 个单元测试覆盖；页面已在本次实现并接入详情页入口。
 
-需要新增 `src/pages/device/track.vue`：
+`src/pages/device/track.vue` 已实现：
 
 - 时间筛选：今天 / 昨天 / 自定义，自定义范围最多 24 小时（超出由服务端裁剪，页面需提示实际范围）；
 - 地图：`polyline` 轨迹折线 + 起点/终点 Marker（图标已生成，见 `src/static/map/marker-start.png`、
@@ -88,34 +91,34 @@ src/
 - 展示 `qualityNotes` 中的数据质量提示（已过滤低精度点/跳点、抽稀前后点数）；
 - 从 `detail.vue` 增加「查看轨迹」次操作入口。
 
-注意：`detail.vue` 底部目前只有「导航到设备」和「刷新」，轨迹入口需要在这一步补上。
+`detail.vue` 底部已增加「查看轨迹」次操作入口。
 
-### 3.2 「我的」页与剩余埋点（P1）
+### 3.2 「我的」页与剩余埋点（P1，已完成）
 
-`src/pages/me/me.vue` 仍是模板占位页，需要：
+`src/pages/me/me.vue` 已实现：
 
 - 展示当前登录用户与其可查看设备的数量；
 - 隐私保护说明入口（说明位置数据的收集目的、使用方式、保存期限）；
 - 退出登录。
 
-埋点基础设施（`src/utils/analytics.ts`）已完成，但只有导航相关事件接入了。剩余事件待接：
+埋点基础设施（`src/utils/analytics.ts`）及本次剩余事件均已接入：
 
 | 事件 | 接入位置 |
 | --- | --- |
 | `device_list_view` | `pages/device/list.vue` 的 `onShow` |
 | `device_detail_view` | `pages/device/detail.vue` 的 `onShow` |
-| `track_query` | 轨迹页查询回调，需带上是否成功 |
+| `track_query` | 轨迹页查询回调，带上成功与点数摘要 |
 | `realtime_ws_connected` / `realtime_ws_disconnected` | `useDeviceRealtime` 的 `onOpen` / `onClose` |
 
-### 3.3 微信登录与会话（P0，但依赖服务端）
+### 3.3 微信登录与会话（P0，客户端/mock 已完成）
 
-目前所有接口都走伪数据，未做登录拦截，进入小程序即可看到设备列表。真实上线前必须补：
+已完成客户端登录页、路由拦截、令牌过期跳转和 mock 会话；真实上线前需联调服务端响应：
 
 - `wx.login` 换取 code，调用 `POST /api/v1/auth/wechat-login` 换取短期令牌
   （模板已有 `src/api/login.ts` 的 `getWxCode()` / `wxLogin()` 与 `src/store/token.ts` 可直接复用）；
-- 登录页与路由拦截（模板已有 `src/router/interceptor.ts` 与 `EXCLUDE_LOGIN_PATH_LIST` 机制）；
-- 令牌过期后的重新登录流程；
-- 伪数据模式下需要一个 mock 登录实现，否则开启登录拦截会卡住本地开发。
+- 登录页为 `src/pages/login/index.vue`，路由拦截使用 `EXCLUDE_LOGIN_PATH_LIST`；
+- HTTP 401 会清理会话并跳转重新登录；
+- `VITE_USE_MOCK=true` 时使用本地 token/用户信息，不阻塞本地开发。
 
 ### 3.4 本次范围之外（服务端 / 运维）
 

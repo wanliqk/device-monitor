@@ -5,6 +5,7 @@ import { getDeviceList } from '@/api/device'
 import { useDeviceConfigStore } from '@/store/deviceConfig'
 import { debounce } from '@/utils/debounce'
 import { resolveOnlineStatus } from '@/utils/deviceStatus'
+import { trackEvent } from '@/utils/analytics'
 import DeviceCard from './components/DeviceCard.vue'
 
 defineOptions({
@@ -126,6 +127,10 @@ onLoad(() => {
 
 onShow(() => {
   startTicker()
+  trackEvent('device_list_view', {
+    deviceCount: devices.value.length,
+    hasError: Boolean(errorMessage.value),
+  })
   // 从详情页返回时静默刷新，避免看到过期的列表状态
   if (!firstLoading.value) {
     fetchList({ reset: true })

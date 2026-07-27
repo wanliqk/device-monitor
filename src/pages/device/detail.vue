@@ -14,6 +14,7 @@ import {
   resolveOnlineStatus,
 } from '@/utils/deviceStatus'
 import { formatCoordinate, formatSpeed } from '@/utils/geo'
+import { trackEvent } from '@/utils/analytics'
 
 defineOptions({
   name: 'DeviceDetail',
@@ -221,6 +222,12 @@ function handleNavigate() {
   })
 }
 
+function goTrack() {
+  uni.navigateTo({
+    url: `/pages/device/track?deviceId=${deviceId.value}&name=${encodeURIComponent(snapshot.value?.name ?? '')}`,
+  })
+}
+
 async function refresh() {
   const res = await fetchSnapshot({ silent: true })
   if (res) {
@@ -255,6 +262,7 @@ onLoad((options) => {
 })
 
 onShow(() => {
+  trackEvent('device_detail_view', { hasDeviceId: Boolean(deviceId.value) })
   resume()
 })
 
@@ -398,7 +406,10 @@ onUnload(() => {
           </wd-button>
         </view>
 
-        <view class="mt-2 flex">
+        <view class="mt-2 flex gap-2">
+          <wd-button plain size="small" custom-class="flex-1" @click="goTrack">
+            查看轨迹
+          </wd-button>
           <wd-button plain size="small" custom-class="flex-1" @click="refresh">
             刷新
           </wd-button>

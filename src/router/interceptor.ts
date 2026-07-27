@@ -4,7 +4,14 @@
  * 黑、白名单的配置，请看 config.ts 文件， EXCLUDE_LOGIN_PATH_LIST
  */
 import { tabbarStore } from '@/tabbar/store'
+import { stringifyQuery } from '@/http/tools/queryString'
 import { getLastPage, parseUrlToObj } from '@/utils/index'
+import { useTokenStore } from '@/store/token'
+import { toLoginPage } from '@/utils/toLoginPage'
+
+/** 登录页之外的页面均要求会话；mock 模式由本地伪登录绕过。 */
+export const EXCLUDE_LOGIN_PATH_LIST = ['/pages/login/index']
+const USE_MOCK_AUTH = import.meta.env.VITE_USE_MOCK !== 'false'
 
 export const FG_LOG_ENABLE = false
 
@@ -20,6 +27,7 @@ export const navigateToInterceptor = {
     FG_LOG_ENABLE && console.log('\n\n路由拦截器:-------------------------------------')
     FG_LOG_ENABLE && console.log('路由拦截器 1: url->', url, ', query ->', query)
     const myQuery = { ..._query, ...query }
+
     // /pages/route-interceptor/index?name=feige&age=30
     FG_LOG_ENABLE && console.log('路由拦截器 2: path->', path, ', _query ->', _query)
     FG_LOG_ENABLE && console.log('路由拦截器 3: myQuery ->', myQuery)
@@ -30,6 +38,17 @@ export const navigateToInterceptor = {
       const normalizedCurrentPath = currentPath.startsWith('/') ? currentPath : `/${currentPath}`
       const baseDir = normalizedCurrentPath.substring(0, normalizedCurrentPath.lastIndexOf('/'))
       path = `${baseDir}/${path}`
+    }
+
+    if (!USE_MOCK_AUTH && !EXCLUDE_LOGIN_PATH_LIST.includes(path)) {
+      const tokenStore = useTokenStore()
+      const protectedPath = path.startsWith('/pages/device') || path === '/pages/me/me'
+      if (protectedPath && !tokenStore.updateNowTime().hasLogin) {
+        const queryString = stringifyQuery(myQuery)
+        const redirect = encodeURIComponent(`${path}${queryString ? `?${queryString}` : ''}`)
+        toLoginPage({ mode: 'reLaunch', queryString: `?redirect=${redirect}` })
+        return false
+      }
     }
 
     // // 处理路由不存在的情况
