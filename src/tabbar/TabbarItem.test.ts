@@ -9,10 +9,10 @@ vi.mock('./store', () => ({
 }))
 
 const baseItem: CustomTabBarItem = {
-  text: '首页',
-  pagePath: 'pages/index/index',
+  text: '设备',
+  pagePath: 'pages/device/list',
   iconType: 'unocss',
-  icon: 'i-carbon-home',
+  icon: 'i-carbon-devices',
 }
 
 describe('TabbarItem', () => {
@@ -26,21 +26,21 @@ describe('TabbarItem', () => {
     wrapper = mount(TabbarItem, {
       props: { item: baseItem, index: 0 },
     })
-    expect(wrapper.text()).toContain('首页')
+    expect(wrapper.text()).toContain('设备')
   })
 
   it('isBulge=true 时不渲染文本', () => {
     wrapper = mount(TabbarItem, {
       props: { item: baseItem, index: 0, isBulge: true },
     })
-    expect(wrapper.text()).not.toContain('首页')
+    expect(wrapper.text()).not.toContain('设备')
   })
 
   it('iconType=unocss 时渲染图标 class', () => {
     wrapper = mount(TabbarItem, {
       props: { item: baseItem, index: 0 },
     })
-    expect(wrapper.html()).toContain('i-carbon-home')
+    expect(wrapper.html()).toContain('i-carbon-devices')
   })
 
   it('badge=dot 时渲染小红点（包含 rounded-full 样式）', () => {

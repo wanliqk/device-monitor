@@ -74,11 +74,9 @@ export default defineConfig({
   ],
   // 动态图标需要在这里配置，或者写在vue页面中注释掉
   safelist: [
-    'i-carbon-code',
-    'i-carbon-home',
+    // tabbar 的图标是运行时动态渲染的，必须在这里声明
+    'i-carbon-devices',
     'i-carbon-user',
-    'i-carbon-ibm-watson-language-translator',
-    'i-carbon-menu',
   ],
   rules: [
     [
